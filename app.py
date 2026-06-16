@@ -1,41 +1,163 @@
 import streamlit as st
-from database import init_db, add_medicine, get_all_medicines
+from database import init_db, add_medicine, get_all_medicines, delete_medicine
 
+# Page config - must be first streamlit command
+st.set_page_config(
+    page_title="Medicine Tracker",
+    page_icon="💊",
+    layout="wide"
+)
 
+# Initialize database
 init_db()
 
+# Custom CSS
+st.markdown("""
+    <style>
+    .medicine-card {
+        background-color: #1e1e2e;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        border-left: 4px solid #7c3aed;
+    }
+    .medicine-name {
+        font-size: 18px;
+        font-weight: 700;
+        color: #ffffff;
+        margin-bottom: 4px;
+    }
+    .medicine-detail {
+        font-size: 14px;
+        color: #a0aec0;
+        margin: 2px 0;
+    }
+    .badge {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-right: 6px;
+    }
+    .badge-morning {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    .badge-night {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+    .badge-afternoon {
+        background-color: #dcfce7;
+        color: #166534;
+    }
+    .badge-default {
+        background-color: #f3e8ff;
+        color: #6b21a8;
+    }
+    .header-text {
+        font-size: 13px;
+        color: #6b7280;
+        margin-top: -10px;
+        margin-bottom: 20px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-st.title("💊 Medicine Tracker")
-st.write("Add and manage your medicines.")
+
+# Sidebar
+with st.sidebar:
+    st.image("https://img.icons8.com/fluency/96/pill.png", width=60)
+    st.title("Medicine Tracker")
+    st.write("Your personal medicine manager.")
+    st.divider()
+    page = st.radio(
+        "Navigate",
+        ["My Medicines", "Add Medicine"],
+        index=0
+    )
+    st.divider()
+    medicines_count = len(get_all_medicines())
+    st.metric("Total Medicines", medicines_count)
 
 
-st.divider()
-
-
-st.subheader("Add a Medicine")
-
-name = st.text_input("Medicine Name")
-dosage = st.text_input("Dosage (e.g. 500mg)")
-timing = st.text_input("Timing (e.g. Morning, Night)")
-notes = st.text_input("Notes (e.g. After food)")
-
-if st.button("Add Medicine"):
-    if name.strip() == "":
-        st.error("Medicine name cannot be empty.")
+# Helper function for timing badge
+def get_badge(timing):
+    timing_lower = timing.lower()
+    if "morning" in timing_lower:
+        return f'<span class="badge badge-morning">🌅 {timing}</span>'
+    elif "night" in timing_lower:
+        return f'<span class="badge badge-night">🌙 {timing}</span>'
+    elif "afternoon" in timing_lower:
+        return f'<span class="badge badge-afternoon">☀️ {timing}</span>'
     else:
-        add_medicine(name, dosage, timing, notes)
-        st.success(f"{name} added successfully!")
+        return f'<span class="badge badge-default">⏰ {timing}</span>'
 
-# Divider
-st.divider()
 
-# Section 2: View All Medicines
-st.subheader("Your Medicines")
+# Page: Add Medicine
+if page == "Add Medicine":
+    st.title("Add a New Medicine")
+    st.markdown('<p class="header-text">Fill in the details below to add a medicine.</p>',
+                unsafe_allow_html=True)
 
-medicines = get_all_medicines()
+    with st.form("add_medicine_form"):
+        col1, col2 = st.columns(2)
 
-if len(medicines) == 0:
-    st.info("No medicines added yet.")
-else:
-    for med in medicines:
-        st.write(f"**{med[1]}** — {med[2]} — {med[3]}")
+        with col1:
+            name = st.text_input("Medicine Name *", placeholder="e.g. Paracetamol")
+            dosage = st.text_input("Dosage", placeholder="e.g. 500mg")
+
+        with col2:
+            timing = st.text_input("Timing", placeholder="e.g. Morning, Night")
+            notes = st.text_input("Notes", placeholder="e.g. After food")
+
+        submitted = st.form_submit_button("Add Medicine", use_container_width=True)
+
+        if submitted:
+            if name.strip() == "":
+                st.error("Medicine name cannot be empty.")
+            else:
+                add_medicine(name, dosage, timing, notes)
+                st.success(f"✅ {name} added successfully!")
+                st.balloons()
+
+
+# Page: My Medicines
+elif page == "My Medicines":
+    st.title("My Medicines")
+    st.markdown('<p class="header-text">All your medicines in one place.</p>',
+                unsafe_allow_html=True)
+
+    medicines = get_all_medicines()
+
+    if len(medicines) == 0:
+        st.info("No medicines added yet. Go to 'Add Medicine' to get started.")
+    else:
+        for med in medicines:
+            med_id = med[0]
+            med_name = med[1]
+            med_dosage = med[2] if med[2] else "Not specified"
+            med_timing = med[3] if med[3] else "Not specified"
+            med_notes = med[4] if med[4] else "—"
+
+            badge_html = get_badge(med_timing)
+
+            col1, col2 = st.columns([5, 1])
+
+            with col1:
+                st.markdown(f"""
+                    <div class="medicine-card">
+                        <div class="medicine-name">💊 {med_name}</div>
+                        <div class="medicine-detail">📦 Dosage: {med_dosage}</div>
+                        <div class="medicine-detail">📝 Notes: {med_notes}</div>
+                        <div style="margin-top:8px">{badge_html}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col2:
+                st.write("")
+                st.write("")
+                if st.button("🗑️ Delete", key=f"del_{med_id}"):
+                    delete_medicine(med_id)
+                    st.rerun()

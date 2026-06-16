@@ -40,3 +40,11 @@ def get_all_medicines():
     
     conn.close()
     return rows
+def delete_medicine(medicine_id):
+    conn = sqlite3.connect("medicines.db")
+    cursor = conn.cursor()
+    
+    cursor.execute("DELETE FROM medicines WHERE id = ?", (medicine_id,))
+    
+    conn.commit()
+    conn.close()
