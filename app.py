@@ -1,6 +1,5 @@
 import streamlit as st
-from database import init_db, add_medicine, get_all_medicines, delete_medicine
-
+from database import init_db, add_medicine, get_all_medicines, delete_medicine, get_medicines_by_timing
 # Page config - must be first streamlit command
 st.set_page_config(
     page_title="Medicine Tracker",
@@ -74,7 +73,7 @@ with st.sidebar:
     st.divider()
     page = st.radio(
         "Navigate",
-        ["My Medicines", "Add Medicine", "Check Interactions"],
+        ["Today's Schedule", "My Medicines", "Add Medicine", "Check Interactions"],
         index=0
     )
     st.divider()
@@ -228,3 +227,142 @@ elif page == "Check Interactions":
                     """, unsafe_allow_html=True)
 
                 st.caption("⚕️ For informational purposes only. Always consult a doctor before making medication decisions.")
+                # Page: Today's Schedule
+elif page == "Today's Schedule":
+    st.title("📅 Today's Schedule")
+    st.markdown('<p class="header-text">Your medicines for today, organised by time of day.</p>',
+                unsafe_allow_html=True)
+
+    from datetime import datetime
+
+    # Get current hour to determine current period
+    current_hour = datetime.now().hour
+
+    if 6 <= current_hour < 12:
+        current_period = "morning"
+    elif 12 <= current_hour < 18:
+        current_period = "afternoon"
+    elif 18 <= current_hour < 24:
+        current_period = "night"
+    else:
+        current_period = "night"
+
+    # Define the three periods
+    periods = [
+        {
+            "name": "Morning",
+            "keyword": "morning",
+            "icon": "🌅",
+            "time": "6:00 AM – 12:00 PM",
+            "color": "#f59e0b"
+        },
+        {
+            "name": "Afternoon",
+            "keyword": "afternoon",
+            "icon": "☀️",
+            "time": "12:00 PM – 6:00 PM",
+            "color": "#10b981"
+        },
+        {
+            "name": "Night",
+            "keyword": "night",
+            "icon": "🌙",
+            "time": "6:00 PM – 12:00 AM",
+            "color": "#6366f1"
+        }
+    ]
+
+    # Show current time
+    now = datetime.now().strftime("%I:%M %p")
+    st.info(f"🕐 Current time: {now}")
+    st.write("")
+
+    total_due = 0
+    any_medicines = False
+
+    for period in periods:
+        medicines = get_medicines_by_timing(period["keyword"])
+
+        if len(medicines) == 0:
+            continue
+
+        any_medicines = True
+        is_current = period["keyword"] == current_period
+
+        # Period header
+        if is_current:
+            st.markdown(f"""
+                <div style="background:#1e1e2e;border-left:4px solid {period['color']};
+                border-radius:8px;padding:12px 16px;margin:16px 0 8px 0;">
+                    <span style="font-size:18px;font-weight:700;color:{period['color']};">
+                        {period['icon']} {period['name']}
+                    </span>
+                    <span style="font-size:12px;color:#a0aec0;margin-left:10px;">
+                        {period['time']}
+                    </span>
+                    <span style="font-size:11px;background:{period['color']}33;
+                    color:{period['color']};padding:2px 8px;border-radius:10px;
+                    margin-left:8px;font-weight:600;">
+                        ⏰ DUE NOW
+                    </span>
+                </div>
+            """, unsafe_allow_html=True)
+            total_due += len(medicines)
+        else:
+            st.markdown(f"""
+                <div style="background:#1e1e2e;border-left:4px solid #374151;
+                border-radius:8px;padding:12px 16px;margin:16px 0 8px 0;">
+                    <span style="font-size:18px;font-weight:700;color:#6b7280;">
+                        {period['icon']} {period['name']}
+                    </span>
+                    <span style="font-size:12px;color:#4b5563;margin-left:10px;">
+                        {period['time']}
+                    </span>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # Show medicines for this period
+        for med in medicines:
+            med_name = med[1]
+            med_dosage = med[2] if med[2] else "No dosage specified"
+            med_notes = med[4] if med[4] else ""
+
+            if is_current:
+                st.markdown(f"""
+                    <div style="background:#2d2d3f;border-radius:8px;
+                    padding:12px 16px;margin:6px 0;
+                    border:1px solid {period['color']}44;">
+                        <span style="font-size:15px;font-weight:600;
+                        color:#ffffff;">💊 {med_name}</span>
+                        <span style="font-size:13px;color:#a0aec0;
+                        margin-left:10px;">
+                            {med_dosage}
+                        </span>
+                        {f'<span style="font-size:12px;color:#6b7280;margin-left:8px;">• {med_notes}</span>' if med_notes else ''}
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                    <div style="background:#1a1a2e;border-radius:8px;
+                    padding:12px 16px;margin:6px 0;
+                    border:1px solid #2d2d3f;">
+                        <span style="font-size:15px;color:#6b7280;">
+                            💊 {med_name}
+                        </span>
+                        <span style="font-size:13px;color:#4b5563;
+                        margin-left:10px;">
+                            {med_dosage}
+                        </span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+    if not any_medicines:
+        st.info("No medicines scheduled yet. Add medicines with Morning, Afternoon, or Night in the timing field.")
+
+    # Summary at bottom
+    if any_medicines and total_due > 0:
+        st.write("")
+        st.warning(f"⚠️ You have {total_due} medicine(s) due right now. Please take them on time.")
+    elif any_medicines:
+        st.write("")
+        st.success("✅ No medicines due right now.")

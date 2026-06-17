@@ -48,3 +48,15 @@ def delete_medicine(medicine_id):
     
     conn.commit()
     conn.close()
+def get_medicines_by_timing(timing_keyword):
+    conn = sqlite3.connect("medicines.db")
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT * FROM medicines 
+        WHERE LOWER(timing) LIKE ?
+    """, (f"%{timing_keyword.lower()}%",))
+    
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
