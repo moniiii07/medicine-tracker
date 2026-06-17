@@ -74,7 +74,7 @@ with st.sidebar:
     st.divider()
     page = st.radio(
         "Navigate",
-        ["My Medicines", "Add Medicine"],
+        ["My Medicines", "Add Medicine", "Check Interactions"],
         index=0
     )
     st.divider()
@@ -161,3 +161,70 @@ elif page == "My Medicines":
                 if st.button("🗑️ Delete", key=f"del_{med_id}"):
                     delete_medicine(med_id)
                     st.rerun()
+
+
+# Page: Check Interactions
+elif page == "Check Interactions":
+    st.title("⚠️ Drug Interaction Checker")
+    st.markdown('<p class="header-text">Check if your medicines are safe to take together.</p>',
+                unsafe_allow_html=True)
+
+    medicines = get_all_medicines()
+
+    if len(medicines) < 2:
+        st.warning("You need at least 2 medicines added to check interactions.")
+    else:
+        medicine_names = [med[1] for med in medicines]
+
+        st.write("**Checking interactions between:**")
+        cols = st.columns(4)
+        for i, name in enumerate(medicine_names):
+            with cols[i % 4]:
+                st.markdown(f"""
+                    <div style="background:#2d2d3f;padding:8px 12px;
+                    border-radius:8px;text-align:center;margin:4px 0;
+                    font-size:13px;color:#e2e8f0;">
+                        💊 {name}
+                    </div>
+                """, unsafe_allow_html=True)
+
+        st.write("")
+
+        if st.button("Check for Interactions", use_container_width=True):
+            with st.spinner("Checking medical database..."):
+                from interaction import check_interactions
+                interactions, not_found = check_interactions(medicine_names)
+
+            if len(interactions) == 0:
+                st.success("✅ No known interactions found between your medicines.")
+                st.caption("Always consult a doctor or pharmacist for medical advice.")
+            else:
+                st.error(f"⚠️ {len(interactions)} interaction(s) found — please consult your doctor.")
+
+                for interaction in interactions:
+                    severity = interaction["severity"].lower()
+
+                    if severity == "high":
+                        color = "#ef4444"
+                        icon = "🔴"
+                    elif severity == "moderate":
+                        color = "#f97316"
+                        icon = "🟠"
+                    else:
+                        color = "#eab308"
+                        icon = "🟡"
+
+                    st.markdown(f"""
+                        <div style="background:#1e1e2e;border-left:4px solid {color};
+                        border-radius:8px;padding:16px 20px;margin:10px 0;">
+                            <div style="font-weight:700;color:{color};
+                            font-size:15px;margin-bottom:8px;">
+                                {icon} {interaction['med1']} + {interaction['med2']}
+                            </div>
+                            <div style="color:#a0aec0;font-size:13px;line-height:1.6;">
+                                {interaction['description']}
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                st.caption("⚕️ For informational purposes only. Always consult a doctor before making medication decisions.")
