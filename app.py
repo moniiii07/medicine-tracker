@@ -1,6 +1,5 @@
 import streamlit as st
-from database import init_db, add_medicine, get_all_medicines, delete_medicine, get_medicines_by_timing
-# Page config - must be first streamlit command
+from database_cloud import init_db, add_medicine, get_all_medicines, delete_medicine, get_medicines_by_timing
 st.set_page_config(
     page_title="Medicine Tracker",
     page_icon="💊",
